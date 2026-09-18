@@ -1,0 +1,42 @@
+[
+  {
+    "question": "什么是RAG？",
+    "ground_truth": "RAG全称Retrieval-Augmented Generation，即检索增强生成，通过外部知识库检索增强大模型回答能力。"
+  },
+  {
+    "question": "PostgreSQL如何支持向量检索？",
+    "ground_truth": "PostgreSQL通过pgvector扩展支持向量检索，可以存储和查询高维向量。"
+  },
+  {
+    "question": "Spring AI是什么？",
+    "ground_truth": "Spring AI是Spring生态中用于集成AI模型（如OpenAI）的统一抽象层。"
+  },
+  {
+    "question": "RAG如何解决大模型幻觉？",
+    "ground_truth": "RAG通过引用外部知识库的原文，让模型基于事实回答，从而降低幻觉。"
+  },
+  {
+    "question": "为什么需要重排模型？",
+    "ground_truth": "重排模型能够对召回的文档进行精细排序，提高Top-1准确率。"
+  },
+  {
+    "question": "企业级RAG系统需要关注哪些指标？",
+    "ground_truth": "检索命中率、P99延迟、Token成本、用户反馈闭环。"
+  },
+  {
+    "question": "什么是向量数据库？",
+    "ground_truth": "向量数据库专门用于存储和检索高维向量数据，支持相似度搜索。"
+  },
+  {
+    "question": "HNSW索引有什么优势？",
+    "ground_truth": "HNSW索引能够将向量相似度搜索复杂度从O(n)降至O(log n)，大幅提升查询性能。"
+  },
+  {
+    "question": "如何降低RAG系统的Token成本？",
+    "ground_truth": "通过缓存热点查询、优化Prompt长度、使用更小的Embedding模型。"
+  },
+  {
+    "question": "限流在企业级服务中起什么作用？",
+    "ground_truth": "限流可以防止突发流量压垮后端服务，保证系统稳定性。"
+  }
+]

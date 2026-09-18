@@ -1,0 +1,97 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/demo3
+    username: postgres
+    password: 123456
+    driver-class-name: org.postgresql.Driver
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 5000ms
+      #这个timeout表示超时重连，重连超过五秒就会报错
+      lettuce:
+        pool:
+          max-active: 10
+          #最大连接数，最多同时存在10个连接，超过就要排队
+          max-idle: 5
+          #最大空闲连接数，超过5个空闲连接，就会被回收关闭
+  config:
+    import: optional:file:.env[.properties]
+  profiles:
+    active: dev
+  ai:
+    openai:
+      base_url: https://api.deepseek.com
+      api-key: ${deepseek_api_key}
+      chat:
+        model: deepseek-v4-pro
+        temperature: 1
+      embedding:
+        base_url: https://api.siliconflow.cn/v1
+        api-key: sk-aomtiybjhtdwsqpgsbyedtcdyaacwiftetqfnnadflgztigs
+        options:
+          model: BAAI/bge-large-zh-v1.5
+    kimi:
+      base_url: https://api.moonshot.cn/v1
+      api-key: sk-9ffhIMQsKkmARzFGN4kvX6CRB4fw3UlSbxSRf4MKycqb1SvZ
+      model: kimi-k3
+rag:
+  chunk:
+    size: 300
+    overlap: 50
+  retrieval:
+    top-k: 10
+  rerank:
+    enabled: true
+    model-path: models/bge-reranker-base.onnx
+    service-url:  http://127.0.0.1:5000/rerank
+  vector-db:
+    path: ./chroma_db
+#logging:
+#  level:
+#    # 重要：让 Spring AI 在启动时自动创建必要的表和索引
+#    initialize-schema: true
+#    # 配置索引类型，HNSW 提供更快的查询速度
+#    index-type: HNSW
+#    # 配置距离度量，对于 OpenAI 的嵌入，余弦距离是常见选择
+#    distance-type: COSINE_DISTANCE
+#    # 指定向量维度，应与你的 Embedding 模型输出维度一致
+#    dimensions: 1536
+#------------------------------------
+#链路追踪
+management:
+  tracing:
+    sampling:
+      #表示100%的请求都会被采样记录
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: http://localhost:9411/api/v2/spans
+  endpoint:
+    web:
+      exposure:
+        include: health,metrics,info
+resilience4j.ratelimiter:
+  #每秒开始时，桶里放入 20 个令牌
+  #    ↓
+  #请求来了 → 取走 1 个令牌 → 放行
+  #请求来了 → 取走 1 个令牌 → 放行
+  #...（第 21 个请求来了）
+  #    ↓
+  #桶空了 → 等待最多 500ms
+  #    ↓
+  #500ms 内没拿到令牌 → 抛出 RequestNotPermitted 异常（被限流）
+  instances:
+    #限流器名称
+    ragSearchRateLimiter:
+      #每个周期最多放行20个请求
+      limit-for-period: 1000
+      #周期长度，1秒刷新一次
+      limit-refresh-period: 1s
+      #拿不到令牌最多等500ms
+      timeout-duration: 1s
+logging:
+  level:
+    org.springframework.ai: DEBUG
+    com.openai: DEBUG
