@@ -13,4 +13,5 @@ public class QueryRequest {
     @Max(value = 10, message = "topk不能大于10")
     private Integer topk=3;
     private String sessionId;
+    private String messageId;
 }

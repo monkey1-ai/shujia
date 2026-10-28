@@ -2,8 +2,11 @@ spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/demo3
     username: postgres
-    password: 123456
+    password: ${shujia_sql}
     driver-class-name: org.postgresql.Driver
+  sql:
+    init:
+      mode: always
   data:
     redis:
       host: localhost
@@ -23,19 +26,21 @@ spring:
   ai:
     openai:
       base_url: https://api.deepseek.com
-      api-key: ${deepseek_api_key}
+      # 键名故意加 shujia_ 前缀：避免撞上通用的 DEEPSEEK_API_KEY 系统环境变量被覆盖
+      api-key: ${shujia_deepseek_key}
+      timeout: 120s
       chat:
         model: deepseek-v4-pro
         temperature: 1
       embedding:
         base_url: https://api.siliconflow.cn/v1
-        api-key: ${embedding_api_key}
+        api-key: ${shujia_embedding_key}
         options:
           model: BAAI/bge-large-zh-v1.5
     kimi:
       base_url: https://api.moonshot.cn/v1
-      api-key: ${kimi_api_key}
-      model: kimi-k3
+      api-key: ${shujia_kimi_key}
+      model: kimi-k2.7-code
 rag:
   chunk:
     size: 300
@@ -91,7 +96,22 @@ resilience4j.ratelimiter:
       limit-refresh-period: 1s
       #拿不到令牌最多等500ms
       timeout-duration: 1s
+#下面是新增的重试和熔断，防止重排服务卡死
+resikience4j.retry:
+  instances:
+    rerankerRetry:
+      maxAttempts: 3 #最大重试次数
+      waitDuration: 100ms #重试间隔
+resilience4j.circuitbreaker:
+  instances:
+    rerankerCircuitBreaker:
+      slidingWindowType: TIME_BASED #滑动窗口类型
+      failureRateThreshold: 50 #失败率阈值：失败率到达50%就触发熔断
+      minimumNumberOfCalls: 5 #最小请求数：至少有5个请求后才会计算失败率
+      slidingWindowSize: 10 #滑动窗口大小：10个请求
+      waitDurationInOpenState: 30s #熔断后保持30秒，之后进入半开状态，允许少量请求试探服务是否恢复
 logging:
   level:
     org.springframework.ai: DEBUG
     com.openai: DEBUG
+    com.example.shujia: DEBUG

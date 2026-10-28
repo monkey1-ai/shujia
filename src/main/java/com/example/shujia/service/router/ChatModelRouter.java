@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.annotation.Fallback;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -24,6 +25,7 @@ public class ChatModelRouter {
      * - 有 sessionId 时：按 hash 分流，保证同一对话始终用同一模型
      * - 无 sessionId 时：随机分流
      */
+    @Fallback
     public ChatClient route(String sessionId) {
         boolean useKimi;
         if (sessionId != null && !sessionId.isEmpty()) {

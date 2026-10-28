@@ -20,5 +20,4 @@ public class PromptBuilder {
         4. 回答要简洁具体。
         """.formatted(context, question, history);
     }
-
 }

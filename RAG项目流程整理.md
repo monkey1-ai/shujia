@@ -197,13 +197,13 @@ application.yaml
    ├─ spring.profiles.active   → dev（application-dev.yml / application-prod.yml 目前为空文件）
    ├─ spring.config.import     → 引入 .env（optional，不存在不报错）
    ├─ spring.ai.openai.*
-   │    ├─ chat 走 DeepSeek：   base_url + ${deepseek_api_key} + model=deepseek-v4-pro + temperature=0.7
-   │    └─ embedding 走 SiliconFlow：base_url + ${embedding_api_key} + bge-large-zh-v1.5
+   │    ├─ chat 走 DeepSeek：   base_url + ${shujia_deepseek_key} + model=deepseek-v4-pro + temperature=0.7
+   │    └─ embedding 走 SiliconFlow：base_url + ${shujia_embedding_key} + bge-large-zh-v1.5
    └─ rag.*                    → chunk/retrieval/rerank/vector-db 参数（⚠️ 当前无代码引用，见问题清单）
 
-.env（不进 git 的密钥文件，已存在）
-   ├─ deepseek_api_key=...
-   └─ embedding_api_key=...
+.env（不进 git 的密钥文件，已存在；键名带 shujia_ 前缀，避免撞上通用系统环境变量 DEEPSEEK_API_KEY）
+   ├─ shujia_deepseek_key=...
+   └─ shujia_embedding_key=...
 
 VectorStoreConfig 硬编码参数：
    表名 vector_store / 1024 维 / 余弦距离 / HNSW / initializeSchema=true
@@ -276,3 +276,8 @@ VectorStoreConfig 硬编码参数：
 4. 修兜底异常的信息泄露（P1-4）、密码硬编码（P1-6）
 5. 给 TraceIdUtil 配拦截器接线（P1-5）
 6. 清理空配置与重复依赖（P2）
+7. 还需要修改页面，首先是这个新建页面的按钮，以及新建对话的id，还有删除对话的id，我看到删除的时候删除的是另一个对话id，但是删除当前对话应该是删除本次id。
+8. 10月19号修改内容如下：
+   添加token检测，也就是getusage，然后是修改原来的conversationMemeryService.addmessage，因为原来把历史记录也添加进redis了，导致历史记录也会随着时间消失，这次修改是把
+   历史记录添加进pg数据库不会消失，但是我感觉每次执行代码都会重新添加，所以这个需要后面再修改。然后还有这个每次重启项目都会重新切块文档并添加进数据库，这个改的话是按照id去查，
+   如果id存在就不重新添加，如果不存在就重新添加。还有这个token检测，如果token超过1000就删除最前面的对话，然后添加新的对话，这个也是按照id去查，如果id存在就不添加新的对话，如果不存在就添加新的对话。

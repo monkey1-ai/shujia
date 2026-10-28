@@ -8,7 +8,7 @@
       <div class="controls">
         <label class="topk">
           <span>TopK</span>
-          <input v-model.number="topK" type="number" min="1" max="10" />
+          <input v-model.number="topK" type="number" min="1" max="10" placeholder="默认" />
         </label>
         <button class="run" :disabled="running" @click="run">
           {{ running ? '评测中…' : '开始评测' }}
@@ -76,7 +76,7 @@
 import { ref, computed } from 'vue'
 import { runEval } from '../api'
 
-const topK = ref(3)
+const topK = ref(null)
 const running = ref(false)
 const result = ref(null)
 const error = ref('')
@@ -105,7 +105,7 @@ async function run() {
   running.value = true
   error.value = ''
   try {
-    result.value = await runEval(topK.value)
+    result.value = await runEval(topK.value || undefined)
   } catch (err) {
     error.value = err.message || '评测失败'
     result.value = null

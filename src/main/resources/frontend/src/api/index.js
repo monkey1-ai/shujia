@@ -149,11 +149,13 @@ function parseEvent(raw) {
 
 /**
  * 运行评测集
- * @param {number} topK 检索条数，默认 3
+ * @param {number} [topK] 检索条数，不传则由后端取配置默认值
  * @returns {Promise<{hitRate:number, mrr:number, totalQueries:number, hits:number, details:string[]}>}
  */
-export async function runEval(topK = 3) {
-  const res = await http.get('/api/v1/eval/run', { params: { topK } })
+export async function runEval(topK) {
+  const params = {}
+  if (topK != null) params.topK = topK
+  const res = await http.get('/api/v1/eval/run', { params })
   if (res.code !== 200) {
     const err = new Error(res.message || '评测失败')
     err.code = res.code
@@ -170,6 +172,67 @@ export async function runEval(topK = 3) {
 export async function cleanMemory(sessionId) {
   const res = await http.post('/cleanMemory/clean', null, { params: { sessionId } })
   return res
+}
+
+/**
+ * 新建会话：sessionId 由后端颁发，前端不再本地生成
+ * @returns {Promise<string>}
+ */
+export async function createSession() {
+  const res = await http.post('/api/v1/chat/session')
+  if (res.code !== 200) {
+    const err = new Error(res.message || '新建会话失败')
+    err.code = res.code
+    err.traceId = res.traceId
+    throw err
+  }
+  return res.data
+}
+
+/**
+ * 会话列表（最近活跃的在前）
+ * @returns {Promise<Array<{sessionId:string, title:string, messageCount:number, updatedAt:string}>>}
+ */
+export async function listSessions() {
+  const res = await http.get('/api/v1/chat/session')
+  if (res.code !== 200) {
+    const err = new Error(res.message || '获取会话列表失败')
+    err.code = res.code
+    err.traceId = res.traceId
+    throw err
+  }
+  return res.data
+}
+
+/**
+ * 获取某个会话的历史消息
+ * @param {string} sessionId
+ * @returns {Promise<string[]>} 形如 ["user:xxx", "assistant:yyy", ...]
+ */
+export async function fetchHistory(sessionId) {
+  const res = await http.get(`/api/v1/chat/session/${encodeURIComponent(sessionId)}/messages`)
+  if (res.code !== 200) {
+    const err = new Error(res.message || '获取历史失败')
+    err.code = res.code
+    err.traceId = res.traceId
+    throw err
+  }
+  return res.data
+}
+
+/**
+ * 删除某个会话：会话行、PG 消息、Redis 记忆、答案缓存一起删
+ * @param {string} sessionId
+ */
+export async function deleteSession(sessionId) {
+  const res = await http.delete(`/api/v1/chat/session/${encodeURIComponent(sessionId)}`)
+  if (res.code !== 200) {
+    const err = new Error(res.message || '删除会话失败')
+    err.code = res.code
+    err.traceId = res.traceId
+    throw err
+  }
+  return res.data
 }
 
 /**

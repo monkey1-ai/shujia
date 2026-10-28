@@ -74,7 +74,7 @@ const props = defineProps({
   sessionId: { type: String, required: true },
   topk: { type: Number, default: 3 }
 })
-const emit = defineEmits(['pick', 'session'])
+const emit = defineEmits(['pick', 'session', 'done'])
 
 const messages = ref([])
 const draft = ref('')
@@ -136,6 +136,9 @@ async function send() {
   const question = draft.value.trim()
   if (!question || loading.value) return
 
+  // 每条消息一个 id：同一次发送若被重试，后端靠它判重，不会写两条
+  const messageId = genMessageId()
+
   messages.value.push({ role: 'user', content: question })
   draft.value = ''
   await nextTick()
@@ -157,7 +160,7 @@ async function send() {
 
   try {
     await ragSearchStream(
-      { question, topk: props.topk, sessionId: props.sessionId },
+      { question, topk: props.topk, sessionId: props.sessionId, messageId },
       {
         signal: controller.signal,
         // 后端可能新分配 sessionId（前端未带时），回传给父组件保持同步
@@ -187,7 +190,15 @@ async function send() {
     botMsg.loading = false
     loading.value = false
     controller = null
+    // 通知父组件刷新会话列表（标题/消息数/活跃时间会变）
+    emit('done')
   }
+}
+
+// crypto.randomUUID 需要安全上下文（localhost/https）；不可用时退化
+function genMessageId() {
+  if (globalThis.crypto?.randomUUID) return crypto.randomUUID()
+  return Date.now() + '-' + Math.random().toString(36).slice(2, 10)
 }
 
 function stop() {
@@ -212,7 +223,29 @@ function fillQuestion(q) {
   send()
 }
 
-defineExpose({ fillQuestion, clear: () => (messages.value = []) })
+/**
+ * 用后端历史回填消息列表（切换/恢复会话时调用）
+ * @param {string[]} history 形如 ["user:xxx", "assistant:yyy", ...]
+ */
+function loadHistory(history) {
+  messages.value = (history || []).map((raw) => {
+    const idx = raw.indexOf(':')
+    const role = idx < 0 ? 'user' : raw.slice(0, idx)
+    const content = idx < 0 ? raw : raw.slice(idx + 1)
+    return {
+      role: role === 'assistant' ? 'assistant' : 'user',
+      content,
+      loading: false,
+      streaming: false,
+      costMs: null,
+      cached: false,
+      traceId: ''
+    }
+  })
+  scrollToBottom()
+}
+
+defineExpose({ fillQuestion, loadHistory, clear: () => (messages.value = []) })
 </script>
 
 <style scoped>

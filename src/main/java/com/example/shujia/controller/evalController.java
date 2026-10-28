@@ -15,7 +15,7 @@ public class evalController {
     private EvalService evalService;
 
     @GetMapping("/run")
-    public Result<EvalService.EvalResult> runEval(@RequestParam(defaultValue = "3") int topK) {
+    public Result<EvalService.EvalResult> runEval(@RequestParam(defaultValue = "${rag.retrieval.top-k}") int topK) {
         EvalService.EvalResult result = evalService.runEvaluation(topK);
         return Result.success(result);
     }

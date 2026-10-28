@@ -10,8 +10,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.time.Duration;
+
 @Configuration
-public class ChatConfig {
+public class ModelConfig {
     @Bean("deepseek")
     public ChatClient chatClient(OpenAiChatModel model,
                                  ToolWrapper toolWrapper) {
@@ -28,6 +30,8 @@ public class ChatConfig {
                 .baseUrl(baseUrl)
                 .apiKey(apiKey)
                 .model(model)
+                .streamUsage(true)
+                .timeout(Duration.ofSeconds(120))
                 .build();
         return OpenAiChatModel.builder()
                 .options(options)

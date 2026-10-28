@@ -19,6 +19,29 @@
         </button>
       </nav>
 
+      <!-- 会话列表 -->
+      <div class="section sessions">
+        <div class="section-title">会话</div>
+        <button class="ghost new-session" @click="newSession">+ 新建会话</button>
+        <ul class="session-list">
+          <li
+            v-for="s in sessions"
+            :key="s.sessionId"
+            class="session-row"
+            :class="{ active: s.sessionId === sessionId }"
+          >
+            <button class="session-item" :title="s.sessionId" @click="switchSession(s.sessionId)">
+              <span class="session-title">{{ s.title || s.sessionId }}</span>
+              <span class="session-count">{{ s.messageCount }}</span>
+            </button>
+            <button class="session-del" title="删除会话" @click.stop="removeSession(s.sessionId)">
+              ×
+            </button>
+          </li>
+          <li v-if="sessions.length === 0" class="session-empty">暂无历史会话</li>
+        </ul>
+      </div>
+
       <!-- 会话配置 -->
       <div class="section">
         <div class="section-title">会话配置</div>
@@ -31,9 +54,8 @@
         </label>
         <label class="field">
           <span>会话 ID</span>
-          <input class="sid" :value="sessionId" readonly />
+          <input class="sid" :value="sessionId || '（未选择）'" readonly />
         </label>
-        <button class="ghost" @click="newSession">新建会话</button>
         <button class="ghost danger" @click="clearMemory">清空记忆</button>
       </div>
 
@@ -54,6 +76,7 @@
         :topk="topk"
         @pick="onPick"
         @session="onSession"
+        @done="loadSessions"
       />
       <EvalPanel v-show="tab === 'eval'" />
     </main>
@@ -69,18 +92,23 @@
 import { ref, onMounted } from 'vue'
 import ChatPanel from './components/ChatPanel.vue'
 import EvalPanel from './components/EvalPanel.vue'
-import { cleanMemory as cleanMemoryApi, checkHealth } from './api'
+import {
+  cleanMemory as cleanMemoryApi,
+  checkHealth,
+  createSession,
+  listSessions,
+  fetchHistory,
+  deleteSession
+} from './api'
 
 const tab = ref('chat')
 const topk = ref(3)
-const sessionId = ref(genSessionId())
+// sessionId 只由后端颁发，前端不再生成任何 id
+const sessionId = ref('')
+const sessions = ref([])
 const online = ref(null)
 const toast = ref(null)
 const chatRef = ref(null)
-
-function genSessionId() {
-  return 'web-' + Math.random().toString(36).slice(2, 10)
-}
 
 function showToast(text, type = 'info') {
   toast.value = { text, type }
@@ -91,10 +119,52 @@ async function probe() {
   online.value = await checkHealth()
 }
 
-function newSession() {
-  sessionId.value = genSessionId()
+async function loadSessions() {
+  try {
+    sessions.value = await listSessions()
+  } catch (err) {
+    sessions.value = []
+    showToast(err.message || '获取会话列表失败', 'err')
+  }
+}
+
+// 新建会话：向后端领 id；失败就保持原样，不伪造 id
+async function newSession() {
+  try {
+    sessionId.value = await createSession()
+    chatRef.value?.clear()
+    await loadSessions()
+    showToast('已开启新会话')
+  } catch (err) {
+    showToast(err.message || '新建会话失败，请稍后重试', 'err')
+  }
+}
+
+// 切换会话：先清空界面，再从 PG/Redis 拉历史回填
+async function switchSession(sid) {
+  if (!sid) return
+  sessionId.value = sid
   chatRef.value?.clear()
-  showToast('已开启新会话')
+  try {
+    const history = await fetchHistory(sid)
+    chatRef.value?.loadHistory(history)
+  } catch (err) {
+    showToast(err.message || '获取历史失败', 'err')
+  }
+}
+
+async function removeSession(sid) {
+  try {
+    await deleteSession(sid)
+    if (sid === sessionId.value) {
+      sessionId.value = ''
+      chatRef.value?.clear()
+    }
+    await loadSessions()
+    showToast('会话已删除', 'ok')
+  } catch (err) {
+    showToast(err.message || '删除会话失败', 'err')
+  }
 }
 
 function onPick(question) {
@@ -103,13 +173,15 @@ function onPick(question) {
 
 // 后端未收到 sessionId 时会自行分配，这里同步过来保持侧边栏与后端一致
 function onSession(sid) {
-  if (sid && sid !== sessionId.value) sessionId.value = sid
+  if (sid && sid !== sessionId.value) {
+    sessionId.value = sid
+    loadSessions()
+  }
 }
 
 async function clearMemory() {
   try {
-    // 注意：后端 /cleanMemory/clean 从单例 QueryRequest 读取 sessionId，拿不到前端传参，
-    // 因此这里同时在前端清空消息列表，保证界面上会话被重置。
+    // 后端 clear() 会同时删 PG 历史、Redis 记忆和该会话的答案缓存
     await cleanMemoryApi(sessionId.value)
     chatRef.value?.clear()
     showToast('会话记忆已清空', 'ok')
@@ -119,7 +191,10 @@ async function clearMemory() {
   }
 }
 
-onMounted(probe)
+onMounted(async () => {
+  await probe()
+  await loadSessions()
+})
 </script>
 
 <style scoped>
@@ -260,6 +335,103 @@ onMounted(probe)
 .ghost.danger:hover {
   border-color: var(--danger);
   color: var(--danger);
+}
+
+.sessions {
+  min-height: 0;
+  flex: 1;
+}
+
+.new-session {
+  text-align: left;
+}
+
+.session-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.session-row {
+  display: flex;
+  align-items: center;
+  border-radius: 7px;
+  transition: 0.15s;
+}
+
+.session-row:hover {
+  background: var(--bg-elevated);
+}
+
+.session-row.active {
+  background: var(--bg-elevated);
+  box-shadow: inset 2px 0 0 var(--primary);
+}
+
+.session-item {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  color: var(--text-dim);
+  padding: 8px 10px;
+  font-size: 12.5px;
+  text-align: left;
+}
+
+.session-row.active .session-item {
+  color: var(--text);
+}
+
+.session-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-count {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--text-dim);
+  font-family: Consolas, monospace;
+}
+
+.session-del {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  margin-right: 6px;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 15px;
+  line-height: 1;
+  opacity: 0;
+  transition: 0.15s;
+}
+
+.session-row:hover .session-del {
+  opacity: 1;
+}
+
+.session-del:hover {
+  background: var(--danger);
+  color: #fff;
+}
+
+.session-empty {
+  padding: 10px;
+  font-size: 12px;
+  color: var(--text-dim);
 }
 
 .status {
