@@ -23,12 +23,20 @@ public class DocumentLoader implements CommandLineRunner {
     private JdbcTemplate jdbcTemplate;
     @Value("${rag.chunk.size}")
     private int chunkSize;
+    @Value("${rag.resource.path}")
+    private String resourcePath;
     @Override
     public void run(String @NonNull ... args) throws Exception {
         PathMatchingResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();
 
         // 1. 读取所有文档
-        Resource[] files = resolver.getResources("classpath:/documents/*");
+        Resource[] files ;
+        try {
+            files= resolver.getResources("file:"+resourcePath+"/*");
+        } catch (Exception e) {
+            System.out.println("⚠️ 没有找到任何文档，跳过入库");
+            return;
+        }
         List<Document> docs = new ArrayList<>();
         for (Resource file : files) {
             TikaDocumentReader reader = new TikaDocumentReader(file);

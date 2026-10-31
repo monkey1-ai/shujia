@@ -28,6 +28,7 @@
         <div class="avatar">{{ msg.role === 'user' ? '我' : 'AI' }}</div>
         <div class="bubble-wrap">
           <div class="bubble">
+            <div v-if="msg.notice" class="notice">⚙ {{ msg.notice }}</div>
             <div v-if="msg.error" class="error-text">⚠ {{ msg.content }}</div>
             <div v-else class="content" v-html="render(msg.content)"></div>
             <span v-if="msg.loading" class="typing"><i></i><i></i><i></i></span>
@@ -71,8 +72,7 @@ import { ref, reactive, nextTick, watch, onBeforeUnmount } from 'vue'
 import { ragSearchStream } from '../api'
 
 const props = defineProps({
-  sessionId: { type: String, required: true },
-  topk: { type: Number, default: 3 }
+  sessionId: { type: String, required: true }
 })
 const emit = defineEmits(['pick', 'session', 'done'])
 
@@ -152,7 +152,8 @@ async function send() {
     streaming: false,
     costMs: null,
     cached: false,
-    traceId: ''
+    traceId: '',
+    notice: ''
   })
   messages.value.push(botMsg)
   loading.value = true
@@ -160,11 +161,15 @@ async function send() {
 
   try {
     await ragSearchStream(
-      { question, topk: props.topk, sessionId: props.sessionId, messageId },
+      { question, sessionId: props.sessionId, messageId },
       {
         signal: controller.signal,
         // 后端可能新分配 sessionId（前端未带时），回传给父组件保持同步
         onSession: (sid) => emit('session', sid),
+        // 降级提示：只作为一条轻量说明挂在气泡顶部
+        onNotice: (text) => {
+          botMsg.notice = text
+        },
         onContent: (chunk) => {
           botMsg.content += chunk
           botMsg.streaming = true
@@ -239,7 +244,8 @@ function loadHistory(history) {
       streaming: false,
       costMs: null,
       cached: false,
-      traceId: ''
+      traceId: '',
+      notice: ''
     }
   })
   scrollToBottom()
@@ -381,6 +387,14 @@ defineExpose({ fillQuestion, loadHistory, clear: () => (messages.value = []) })
 
 .error-text {
   color: var(--danger);
+}
+
+.notice {
+  font-size: 12px;
+  color: var(--warning);
+  margin-bottom: 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px dashed var(--border);
 }
 
 .typing {

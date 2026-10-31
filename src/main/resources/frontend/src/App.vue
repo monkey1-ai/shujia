@@ -46,13 +46,6 @@
       <div class="section">
         <div class="section-title">会话配置</div>
         <label class="field">
-          <span>召回条数 TopK</span>
-          <div class="slider-row">
-            <input v-model.number="topk" type="range" min="1" max="10" />
-            <b>{{ topk }}</b>
-          </div>
-        </label>
-        <label class="field">
           <span>会话 ID</span>
           <input class="sid" :value="sessionId || '（未选择）'" readonly />
         </label>
@@ -73,7 +66,6 @@
         v-show="tab === 'chat'"
         ref="chatRef"
         :session-id="sessionId"
-        :topk="topk"
         @pick="onPick"
         @session="onSession"
         @done="loadSessions"
@@ -102,7 +94,6 @@ import {
 } from './api'
 
 const tab = ref('chat')
-const topk = ref(3)
 // sessionId 只由后端颁发，前端不再生成任何 id
 const sessionId = ref('')
 const sessions = ref([])
@@ -288,23 +279,6 @@ onMounted(async () => {
   gap: 7px;
   font-size: 12.5px;
   color: var(--text-dim);
-}
-
-.slider-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.slider-row input[type='range'] {
-  flex: 1;
-  accent-color: var(--primary);
-}
-
-.slider-row b {
-  color: var(--text);
-  width: 16px;
-  text-align: right;
 }
 
 .field .sid {

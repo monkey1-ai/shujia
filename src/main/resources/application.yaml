@@ -28,7 +28,9 @@ spring:
       base_url: https://api.deepseek.com
       # 键名故意加 shujia_ 前缀：避免撞上通用的 DEEPSEEK_API_KEY 系统环境变量被覆盖
       api-key: ${shujia_deepseek_key}
-      timeout: 120s
+      client:
+        connect-timeout: 5s
+        read-timeout: 120s
       chat:
         model: deepseek-v4-pro
         temperature: 1
@@ -46,13 +48,15 @@ rag:
     size: 300
     overlap: 50
   retrieval:
-    top-k: 10
+    top-k: 3
   rerank:
     enabled: true
     model-path: models/bge-reranker-base.onnx
     service-url:  http://127.0.0.1:5000/rerank
   vector-db:
     path: ./chroma_db
+  resource:
+    path: D:/shujia知识库
 #logging:
 #  level:
 #    # 重要：让 Spring AI 在启动时自动创建必要的表和索引
