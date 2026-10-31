@@ -9,7 +9,6 @@ import com.example.shujia.service.router.ChatModelRouter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.metadata.Usage;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
@@ -18,12 +17,12 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import reactor.core.Disposable;
 
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Collectors;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @Service
 public class RagServiceImpl implements RagService {
@@ -110,7 +109,8 @@ public class RagServiceImpl implements RagService {
                 TimeUnit.NANOSECONDS.toMillis(time6-time5));
         // 6. 构建 prompt
         String promptTemplate = promptBuilder.build(context, question, historyText);
-        ChatClient model = chatModelRouter.route(sessionId);
+        String primary = chatModelRouter.route(sessionId);
+
 
         // 7. 先发 sessionId 给前端
         try {
@@ -121,11 +121,42 @@ public class RagServiceImpl implements RagService {
         }
 
         // 8. 流式调用模型
-        StringBuilder fullAnswer = new StringBuilder();
-        final String finalCacheKey = cacheKey;
-        AtomicReference<Usage> finalUsage = new AtomicReference<>();
+        streamWithFallback(emitter, promptTemplate, primary, List.of(primary,chatModelRouter.backupOf(primary)), sessionId, messageId, cacheKey, start);
 
-        model.prompt(promptTemplate)
+
+    }
+    private void sendError(SseEmitter emitter, Throwable e) {
+        try {
+            emitter.send(SseEmitter.event().name("error").data(e.getMessage()));
+            emitter.complete();
+        } catch (Exception ex) {
+            emitter.completeWithError(ex);
+        }
+    }
+    private void streamWithFallback(SseEmitter emitter,String prompt,String primaryName,
+                                    List<String> order,String sessionId,String messageId,String cacheKey,long start){
+        AtomicBoolean emitted= new AtomicBoolean(false);
+        attempt(emitter, prompt, order, 0, primaryName, emitted, sessionId,messageId, cacheKey, start);
+    }
+    private void attempt(SseEmitter emitter,String prompt,List<String>order,
+                         int index,String primaryName,AtomicBoolean emitted,
+                         String sessionId,String messageId,String cacheKey,long start){
+        String name=order.get(index);
+        boolean isFallback=index>0;
+        StringBuilder answer = new StringBuilder();
+        ChatClient client;
+        try {
+            client=chatModelRouter.getChatClient(name);
+        }catch (Exception e){
+            handleFailure(emitter, prompt, order, index, primaryName, emitted, sessionId,messageId,cacheKey, start, e);
+            return;
+        }
+        if(isFallback){
+            log.info("【rag查询】尝试使用备选模型:{}",name);
+        }
+        try {
+
+        Disposable sub=client.prompt(prompt)
                 .stream()
                 .chatResponse()
                 .doOnNext(chunk -> {
@@ -140,11 +171,14 @@ public class RagServiceImpl implements RagService {
                             }
                         }
                         if (chunk.getResult() != null) {
-                            chunk.getResult();
                             String text = chunk.getResult().getOutput().getText();
                             if (text != null && !text.isEmpty()) {
-                                fullAnswer.append(text);
-                                emitter.send(SseEmitter.event().name("content").data(text, MediaType.TEXT_PLAIN));
+                                boolean first = emitted.compareAndSet(false, true);
+                                if (first && isFallback) {
+                                    emitter.send(SseEmitter.event().name("notice")
+                                            .data("主模型不可用，已切换备用模型（" + name + "）"));}
+                                    answer.append(text);
+                                    emitter.send(SseEmitter.event().name("content").data(text,MediaType.TEXT_PLAIN));
                             }
                         }
                     } catch (Exception e) {
@@ -153,15 +187,15 @@ public class RagServiceImpl implements RagService {
                 })
                 .doOnComplete(() -> {
                     try {
-                        String answer = fullAnswer.toString();
+                        String full = answer.toString();
                         long costMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start);
-                        log.info("【rag查询】流式完成，sessionId:{}，耗时:{}ms，答案长度:{}", sessionId, costMs, answer.length());
+                        log.info("【rag查询】流式完成，sessionId:{}，耗时:{}ms，答案长度:{}", sessionId, costMs, full.length());
 
                         // 存记忆
-                        memoryService.addMessage(sessionId, messageId+ "-a", "assistant", answer);
+                        memoryService.addMessage(sessionId, messageId+ "-a", "assistant", full);
 
                         // 存缓存
-                        redisTemplate.opsForValue().set(finalCacheKey, answer, 1, TimeUnit.DAYS);
+                        redisTemplate.opsForValue().set(cacheKey, full, 1, TimeUnit.DAYS);
                         log.info("结果已缓存");
 
                         // 发送完成事件（包含耗时）
@@ -172,33 +206,30 @@ public class RagServiceImpl implements RagService {
                         sendError(emitter, e);
                     }
                 })
-                .doOnError(e -> {
-                    log.error("【流式输出】模型调用失败", e);
-                    sendError(emitter, e);
-                })
+                .doOnError(e -> handleFailure(emitter, prompt, order, index, primaryName, emitted, sessionId,messageId, cacheKey, start, e))
                 .subscribe();
-    }
-
-    /**
-     * 统一把流内错误转成一个 error 事件推给前端，再正常关闭流。
-     *
-     * 【为什么不用 completeWithError】那会把异常回抛给 Servlet 容器，
-     * 触发 GlobalExceptionHandler → 它想往一个已经是 text/event-stream 的响应里
-     * 写 Result JSON，于是又报 “No converter for ... text/event-stream”。
-     * 前端 index.js 只认 error 事件（case 'error'），所以这里推事件 + complete() 即可。
-     */
-    private void sendError(SseEmitter emitter, Throwable e) {
-        try {
-            emitter.send(SseEmitter.event().name("error").data(e.getMessage()));
-            emitter.complete();
-        } catch (Exception ex) {
-            emitter.completeWithError(ex);
+        emitter.onCompletion(sub::dispose);
+        emitter.onTimeout(sub::dispose);
+        emitter.onError(e -> sub.dispose());}
+        catch (Exception e){
+            handleFailure(emitter, prompt, order, index, primaryName, emitted, sessionId,messageId, cacheKey, start, e);
         }
     }
-
-    private String preview(String text) {
-        if (text == null) return "null";
-        String singleLine = text.replaceAll("\\s+", " ").trim();
-        return singleLine.length() > 120 ? singleLine.substring(0, 120) + "..." : singleLine;
+    private void handleFailure(SseEmitter emitter,String prompt,List<String>order,
+                               int index,String primaryName,AtomicBoolean emitted,
+                               String sessionId,String messageId,String cacheKey,long start,Throwable e){
+        if(emitted.get()){
+            log.info("【rag查询】主模型可用，备选模型失败，sessionId:{}，错误:{}", sessionId, e.getMessage());
+            sendError(emitter, e);
+            return;
+        }
+        if(!(index<order.size()-1)){
+            log.info("【rag查询】所有模型都失败，sessionId:{}，错误:{}", sessionId, e.getMessage());
+            sendError(emitter, e);
+            return;
+        }
+        log.warn("【rag查询】主模型不可用，尝试备选模型，sessionId:{}，错误:{}", sessionId, e.getMessage());
+        sendError(emitter, e);
+        attempt(emitter, prompt, order, index+1, primaryName, emitted, sessionId,messageId, cacheKey, start);
     }
 }

@@ -23,6 +23,6 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public Result<?> handleException(Exception ex){
         log.warn("系统异常：{}" , ex.getMessage());
-        return Result.error(500,ex.getMessage());
+        return Result.error(500,"系统异常");
     }
 }

@@ -20,8 +20,9 @@ http.interceptors.response.use(
 
 /**
  * RAG 问答（SSE 流式）
- * 后端推 4 类事件：
+ * 后端推 5 类事件：
  *   session → sessionId
+ *   notice  → 系统提示（例如"主模型不可用，已切换备用模型"），不是正文
  *   content → 文本增量（可能多次）
  *   done    → {"costMs":N}，缓存命中时为空串
  *   error   → 错误信息
@@ -29,12 +30,12 @@ http.interceptors.response.use(
  * 注意：EventSource 只支持 GET，axios 在浏览器端拿不到增量流，
  * 因此这里用 fetch + ReadableStream 手动解析 SSE。
  *
- * @param {{question:string, topk?:number, sessionId?:string}} payload
- * @param {{onSession?:Function, onContent?:Function, onDone?:Function, onError?:Function, signal?:AbortSignal}} handlers
- * @returns {Promise<{sessionId:string, answer:string, costMs:number|null, cached:boolean}>}
+ * @param {{question:string, topk?:number, sessionId?:string, messageId?:string}} payload
+ * @param {{onSession?:Function, onNotice?:Function, onContent?:Function, onDone?:Function, onError?:Function, signal?:AbortSignal}} handlers
+ * @returns {Promise<{sessionId:string, answer:string, notices:string[], costMs:number|null, cached:boolean}>}
  */
 export async function ragSearchStream(payload, handlers = {}) {
-  const { onSession, onContent, onDone, onError, signal } = handlers
+  const { onSession, onNotice, onContent, onDone, onError, signal } = handlers
 
   let response
   try {
@@ -76,7 +77,7 @@ export async function ragSearchStream(payload, handlers = {}) {
   const reader = response.body.getReader()
   const decoder = new TextDecoder('utf-8')
 
-  const state = { sessionId: payload.sessionId || '', answer: '', costMs: null, cached: false }
+  const state = { sessionId: payload.sessionId || '', answer: '', notices: [], costMs: null, cached: false }
   let buffer = ''
   let serverError = null
 
@@ -97,6 +98,11 @@ export async function ragSearchStream(payload, handlers = {}) {
         case 'session':
           state.sessionId = event.data
           onSession && onSession(event.data)
+          break
+        case 'notice':
+          // 降级/重试等系统提示：不进正文，避免污染缓存和历史
+          state.notices.push(event.data)
+          onNotice && onNotice(event.data)
           break
         case 'content':
           state.answer += event.data
