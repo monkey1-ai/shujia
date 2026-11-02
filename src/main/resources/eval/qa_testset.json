@@ -1,42 +1,112 @@
 [
   {
-    "question": "什么是RAG？",
-    "ground_truth": "RAG全称Retrieval-Augmented Generation，即检索增强生成，通过外部知识库检索增强大模型回答能力。"
+    "question": "企业的知识库文档按照建议应该分成哪几个密级？",
+    "source": "03_企业知识库数据分级规范.md",
+    "ground_truth": "L4"
   },
   {
-    "question": "PostgreSQL如何支持向量检索？",
-    "ground_truth": "PostgreSQL通过pgvector扩展支持向量检索，可以存储和查询高维向量。"
+    "question": "提示词注入按攻击载荷进入系统的路径可以分为哪两大类？",
+    "source": "07_提示词注入风险分类.md",
+    "ground_truth": "间接注入"
   },
   {
-    "question": "Spring AI是什么？",
-    "ground_truth": "Spring AI是Spring生态中用于集成AI模型（如OpenAI）的统一抽象层。"
+    "question": "多租户隔离需要在哪三个层次上协同？",
+    "source": "16_知识库隔离与多租户安全.md",
+    "ground_truth": "运行隔离"
   },
   {
-    "question": "RAG如何解决大模型幻觉？",
-    "ground_truth": "RAG通过引用外部知识库的原文，让模型基于事实回答，从而降低幻觉。"
+    "question": "向量数据库的权限控制可以分到哪几个层级？",
+    "source": "15_向量数据库访问权限设计.md",
+    "ground_truth": "记录/元数据层"
   },
   {
-    "question": "为什么需要重排模型？",
-    "ground_truth": "重排模型能够对召回的文档进行精细排序，提高Top-1准确率。"
+    "question": "哪些类型的信息属于严禁入库、命中即拦截的敏感信息？",
+    "source": "17_敏感信息检索拦截策略.md",
+    "ground_truth": "认证凭证"
   },
   {
-    "question": "企业级RAG系统需要关注哪些指标？",
-    "ground_truth": "检索命中率、P99延迟、Token成本、用户反馈闭环。"
+    "question": "一次问答为了可追溯，最少需要记录哪些环节的信息？",
+    "source": "18_RAG回答可追溯性设计.md",
+    "ground_truth": "检索"
   },
   {
-    "question": "什么是向量数据库？",
-    "ground_truth": "向量数据库专门用于存储和检索高维向量数据，支持相似度搜索。"
+    "question": "越权指令的典型特征可以分为哪几类？",
+    "source": "21_提示词越权指令识别方法.md",
+    "ground_truth": "权限冒充型"
   },
   {
-    "question": "HNSW索引有什么优势？",
-    "ground_truth": "HNSW索引能够将向量相似度搜索复杂度从O(n)降至O(log n)，大幅提升查询性能。"
+    "question": "安全测试评分为什么要引入分层加权和高危一票否决？",
+    "source": "35_安全测试结果评分方法.md",
+    "ground_truth": "一票否决"
   },
   {
-    "question": "如何降低RAG系统的Token成本？",
-    "ground_truth": "通过缓存热点查询、优化Prompt长度、使用更小的Embedding模型。"
+    "question": "重排序模型在安全边界里应该承担什么职责，不应该承担什么职责？",
+    "source": "14_重排序模型对安全的影响.md",
+    "ground_truth": "可信度加权"
   },
   {
-    "question": "限流在企业级服务中起什么作用？",
-    "ground_truth": "限流可以防止突发流量压垮后端服务，保证系统稳定性。"
+    "question": "AI 应用合规测试中，主要的风险点包括哪几类？",
+    "source": "01_AI应用合规测试总体方案.md",
+    "ground_truth": "上下文污染"
+  },
+  {
+    "question": "文档被切分成片段后，为什么会带来安全问题？",
+    "source": "19_文档切片对安全的影响.md",
+    "ground_truth": "密级"
+  },
+  {
+    "question": "检索到的片段在什么情况下会泄露，怎么控制？",
+    "source": "13_检索片段泄露风险控制.md",
+    "ground_truth": "复述"
+  },
+  {
+    "question": "知识库文档被污染有哪几种主要形态？",
+    "source": "12_知识库文档污染检测方法.md",
+    "ground_truth": "污染"
+  },
+  {
+    "question": "一份文档要入库，它的来源可信度应该按什么标准评估？",
+    "source": "11_RAG文档来源可信度评估.md",
+    "ground_truth": "可信度"
+  },
+  {
+    "question": "模型调用链路需要记录哪些字段才算合规？",
+    "source": "10_模型调用链路合规记录规范.md",
+    "ground_truth": "降级"
+  },
+  {
+    "question": "AI 应用的日志审计，最少要记录哪些内容？",
+    "source": "09_AI应用日志审计要求.md",
+    "ground_truth": "审计"
+  },
+  {
+    "question": "为什么说把检索到的文档内容拼进上下文时，指令和数据必须分开？",
+    "source": "08_检索增强生成中的信任边界.md",
+    "ground_truth": "信任边界"
+  },
+  {
+    "question": "对模型的输出做合规审查，需要从哪些维度检查？",
+    "source": "06_AI输出内容合规审查规则.md",
+    "ground_truth": "审查维度"
+  },
+  {
+    "question": "用户的越权输入有哪些常见特征，应该怎么分级处置？",
+    "source": "04_用户输入安全过滤策略.md",
+    "ground_truth": "分级处置"
+  },
+  {
+    "question": "角色扮演类的攻击是怎么绕过安全规则的？",
+    "source": "22_角色扮演类攻击测试用例.md",
+    "ground_truth": "角色扮演"
+  },
+  {
+    "question": "公司员工今年的年终奖发放标准是什么？",
+    "source": "",
+    "ground_truth": ""
+  },
+  {
+    "question": "如何用 Kubernetes 部署一个高可用的 PostgreSQL 集群？",
+    "source": "",
+    "ground_truth": ""
   }
 ]

@@ -28,9 +28,10 @@ spring:
       base_url: https://api.deepseek.com
       # 键名故意加 shujia_ 前缀：避免撞上通用的 DEEPSEEK_API_KEY 系统环境变量被覆盖
       api-key: ${shujia_deepseek_key}
-      client:
-        connect-timeout: 5s
-        read-timeout: 120s
+      # okhttp 的 callTimeout（整次调用总时长），必须 >= SSE 的 120s
+      timeout: 300s
+      # 关掉 SDK 自动重试，失败立刻抛给业务层的降级逻辑
+      max-retries: 0
       chat:
         model: deepseek-v4-pro
         temperature: 1

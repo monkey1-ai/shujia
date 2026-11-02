@@ -13,7 +13,7 @@
     </parent>
 
     <groupId>com.gym</groupId>
-    <artifactId>shujia</artifactId>
+    <artifactId>summer</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>shujia</name>
     <description>企业级RAG知识库 - 支持重排/限流/链路追踪</description>

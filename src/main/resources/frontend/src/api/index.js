@@ -30,7 +30,7 @@ http.interceptors.response.use(
  * 注意：EventSource 只支持 GET，axios 在浏览器端拿不到增量流，
  * 因此这里用 fetch + ReadableStream 手动解析 SSE。
  *
- * @param {{question:string, sessionId?:string, messageId?:string}} payload
+ * @param {{question:string, topk?:number, sessionId?:string, messageId?:string}} payload
  * @param {{onSession?:Function, onNotice?:Function, onContent?:Function, onDone?:Function, onError?:Function, signal?:AbortSignal}} handlers
  * @returns {Promise<{sessionId:string, answer:string, notices:string[], costMs:number|null, cached:boolean}>}
  */
