@@ -178,8 +178,8 @@ public class RagServiceImpl implements RagService {
                                     emitter.send(SseEmitter.event().name("notice")
                                             .data("主模型不可用，已切换备用模型（" + name + "）"));}
                                     answer.append(text);
-                                    emitter.send(SseEmitter.event().name("content").data(text,MediaType.TEXT_PLAIN));}
-
+                                    emitter.send(SseEmitter.event().name("content").data(text,MediaType.TEXT_PLAIN));
+                            }
                         }
                     } catch (Exception e) {
                         log.error("【流式输出】发送chunk失败", e);
@@ -229,6 +229,7 @@ public class RagServiceImpl implements RagService {
             return;
         }
         log.warn("【rag查询】主模型不可用，尝试备选模型，sessionId:{}，错误:{}", sessionId, e.getMessage());
+        sendError(emitter, e);
         attempt(emitter, prompt, order, index+1, primaryName, emitted, sessionId,messageId, cacheKey, start);
     }
 }
