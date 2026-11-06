@@ -6,8 +6,8 @@ import org.springframework.retry.annotation.EnableRetry;
 
 @SpringBootApplication
 @EnableRetry
-public class ShujiaApplication {
+public class SummerApplication {
     public static void main(String[] args) {
-        SpringApplication.run(ShujiaApplication.class, args);
+        SpringApplication.run(SummerApplication.class, args);
     }
 }
